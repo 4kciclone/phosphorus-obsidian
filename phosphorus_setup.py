@@ -45,8 +45,8 @@ PACKAGES = [
     "ttf-jetbrains-mono-nerd", "starship",
     # Rede
     "networkmanager", "sudo",
-    # VirtualBox
-    "virtualbox-guest-utils",
+    # VirtualBox e Drivers
+    "virtualbox-guest-utils", "mesa", "lib32-mesa", "xf86-video-vmware", "vulkan-swrast",
 ]
 
 # ---------------------------------------------------------------------------
@@ -188,7 +188,7 @@ cat > "$HYPR_DIR/hyprland.conf" << 'HYPR_CONF'
 # VirtualBox compatibility
 env = WLR_NO_HARDWARE_CURSORS,1
 env = WLR_RENDERER_ALLOW_SOFTWARE,1
-env = LIBVA_DRIVER_NAME,d3d12
+# env = WLR_RENDERER,pixman # Caso o acima falhe, descomenta esta linha
 
 # Monitor
 monitor=,preferred,auto,1
