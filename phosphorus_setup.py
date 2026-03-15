@@ -30,10 +30,10 @@ OBSIDIAN_BLACK   = "#0d1117"
 
 PACKAGES = [
     "git", "base-devel", "kitty", "hyprland", "waybar", "swww",
-    "rofi-lbonn-wayland", "virtualbox-guest-utils", "starship", "zsh",
+    "rofi-wayland", "virtualbox-guest-utils", "starship", "zsh",
     "ttf-jetbrains-mono-nerd", "networkmanager", "sudo", "neovim",
     "curl", "wget", "python", "xdg-user-dirs", "pipewire",
-    "pipewire-pulse", "wireplumber", "xdg-portal-hyprland",
+    "pipewire-pulse", "wireplumber", "xdg-desktop-portal-hyprland",
     "polkit-kde-agent", "qt5-wayland", "qt6-wayland",
     "grim", "slurp", "wl-clipboard", "dunst",
 ]
