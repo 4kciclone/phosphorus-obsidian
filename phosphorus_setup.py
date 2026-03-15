@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 # =============================================================================
 #  PHOSPHORUS OBSIDIAN - Automated Arch Linux Installer
 #  Sistema: Hyprland + BlackArch + Visual Rice para VirtualBox
@@ -166,7 +167,7 @@ def run_archinstall():
 # STEP 3 – SCRIPTS DE PÓS-INSTALAÇÃO (chroot)
 # ---------------------------------------------------------------------------
 
-POSTINSTALL_SCRIPT = r"""#!/bin/bash
+POSTINSTALL_SCRIPT = r'''#!/bin/bash
 set -euo pipefail
 
 USERNAME="{username}"
@@ -497,7 +498,7 @@ echo "║   PHOSPHORUS OBSIDIAN – Instalação Concluída  ║"
 echo "║   Utilizador: {username}  /  Pass: phosphorus  ║"
 echo "║   Reinicia e entra no Hyprland!               ║"
 echo "╚══════════════════════════════════════════════╝"
-""".format(
+'''.format(
     username=USERNAME,
     green=PHOSPHORUS_GREEN,
     obsidian=OBSIDIAN_BLACK,
