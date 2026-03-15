@@ -170,10 +170,10 @@ def run_archinstall():
 POSTINSTALL_SCRIPT = r'''#!/bin/bash
 set -euo pipefail
 
-USERNAME="{username}"
+USERNAME="__USERNAME__"
 HOME_DIR="/home/$USERNAME"
-GREEN="{green}"
-OBSIDIAN="{obsidian}"
+GREEN="__GREEN__"
+OBSIDIAN="__OBSIDIAN__"
 
 echo "==> [1/7] Sudo sem password durante instalação…"
 echo "$USERNAME ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/phosphorus_tmp
@@ -345,11 +345,11 @@ fi
 SELECTED=$(ls "$WALLPAPER_DIR" | rofi \
     -dmenu \
     -p "Wallpaper" \
-    -theme-str 'window {{background-color: #0d1117; border: 2px solid #20c20e;}}
-                listview {{background-color: #161b22;}}
-                element-text {{color: #c9d1d9;}}
-                element selected {{background-color: #20c20e; text-color: #0d1117;}}
-                inputbar {{background-color: #161b22; text-color: #20c20e;}}')
+    -theme-str 'window {background-color: #0d1117; border: 2px solid #20c20e;}
+                listview {background-color: #161b22;}
+                element-text {color: #c9d1d9;}
+                element selected {background-color: #20c20e; text-color: #0d1117;}
+                inputbar {background-color: #161b22; text-color: #20c20e;}')
 
 [ -z "$SELECTED" ] && exit 0
 
@@ -406,26 +406,26 @@ WAYBAR_CONFIG
 
 cat > "$WAYBAR_DIR/style.css" << 'WAYBAR_CSS'
 /* Phosphorus Obsidian - Waybar Style */
-* {{ font-family: "JetBrainsMono Nerd Font"; font-size: 13px; border: none; border-radius: 0; }}
-window#waybar {{
+* { font-family: "JetBrainsMono Nerd Font"; font-size: 13px; border: none; border-radius: 0; }
+window#waybar {
     background: rgba(13, 17, 23, 0.90);
     color: #c9d1d9;
     border-bottom: 2px solid #20c20e;
-}}
-#workspaces button {{
+}
+#workspaces button {
     color: #8b949e;
     padding: 0 8px;
     background: transparent;
     border-bottom: 2px solid transparent;
-}}
-#workspaces button.active {{
+}
+#workspaces button.active {
     color: #20c20e;
     border-bottom: 2px solid #20c20e;
     background: rgba(32, 194, 14, 0.1);
-}}
-#clock {{ color: #20c20e; padding: 0 12px; font-weight: bold; }}
-#cpu, #memory, #network, #pulseaudio {{ padding: 0 10px; color: #c9d1d9; }}
-#tray {{ padding: 0 8px; }}
+}
+#clock { color: #20c20e; padding: 0 12px; font-weight: bold; }
+#cpu, #memory, #network, #pulseaudio { padding: 0 10px; color: #c9d1d9; }
+#tray { padding: 0 8px; }
 WAYBAR_CSS
 
 echo "==> Configurando Starship prompt..."
@@ -494,14 +494,10 @@ rm -f /etc/sudoers.d/phosphorus_tmp
 echo ""
 echo "╔══════════════════════════════════════════════╗"
 echo "║   PHOSPHORUS OBSIDIAN – Instalação Concluída  ║"
-echo "║   Utilizador: {username}  /  Pass: phosphorus  ║"
+echo "║   Utilizador: __USERNAME__  /  Pass: phosphorus  ║"
 echo "║   Reinicia e entra no Hyprland!               ║"
 echo "╚══════════════════════════════════════════════╝"
-'''.format(
-    username=USERNAME,
-    green=PHOSPHORUS_GREEN,
-    obsidian=OBSIDIAN_BLACK,
-)
+'''.replace('__USERNAME__', USERNAME).replace('__GREEN__', PHOSPHORUS_GREEN).replace('__OBSIDIAN__', OBSIDIAN_BLACK)
 
 
 def write_postinstall_script():
