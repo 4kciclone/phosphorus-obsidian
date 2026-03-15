@@ -62,45 +62,36 @@ def write_file(path, content, mode=0o644):
 def install_system():
     """Particiona, formata, monta e instala o sistema base manualmente."""
 
-    print("\n[1/6] Actualizando relógio do sistema...")
+    print("\n[1/6] Actualizando relogio do sistema...")
     run("timedatectl set-ntp true")
 
-    print("\n[2/6] Particionando disco (GPT/EFI)...")
+    print("\n[2/6] Particionando disco (GPT/EFI) - layout simples para VM...")
     # Limpa o disco e cria tabela GPT
     run(f"sgdisk --zap-all {DISK}")
     run(f"sgdisk --clear {DISK}")
-    # Partição 1: EFI (512MB)
-    run(f"sgdisk -n 1:0:+512M -t 1:ef00 -c 1:'EFI' {DISK}")
-    # Partição 2: swap (2GB)
-    run(f"sgdisk -n 2:0:+2G  -t 2:8200 -c 2:'swap' {DISK}")
-    # Partição 3: root (20GB)
-    run(f"sgdisk -n 3:0:+20G -t 3:8300 -c 3:'root' {DISK}")
-    # Partição 4: home (resto)
-    run(f"sgdisk -n 4:0:0    -t 4:8300 -c 4:'home' {DISK}")
-    run("partprobe", check=False)
+    # Particao 1: EFI (512MB)
+    run(f"sgdisk -n 1:0:+512M -t 1:ef00 -c 1:EFI {DISK}")
+    # Particao 2: root (todo o espaco restante)
+    run(f"sgdisk -n 2:0:0 -t 2:8300 -c 2:root {DISK}")
+    run("partprobe || true", check=False)
     run("sleep 2")
 
-    # Detecta nomes correctos das partições (sda1/sda1 ou nvme0n1p1 etc.)
+    # Detecta nomes correctos das particoes (sda1/sda2 ou nvme0n1p1 etc.)
     import glob
     parts = sorted(glob.glob(f"{DISK}*[0-9]"))
-    if len(parts) < 4:
-        # Tenta com 'p' prefix (NVMe)
+    if len(parts) < 2:
         parts = sorted(glob.glob(f"{DISK}p*[0-9]"))
-    efi, swap, root, home = parts[0], parts[1], parts[2], parts[3]
-    print(f"  Partições detectadas: EFI={efi} swap={swap} root={root} home={home}")
+    efi, root = parts[0], parts[1]
+    print(f"  Particoes detectadas: EFI={efi} root={root}")
 
-    print("\n[3/6] Formatando partições...")
+    print("\n[3/6] Formatando particoes...")
     run(f"mkfs.fat -F32 {efi}")
-    run(f"mkswap {swap}")
-    run(f"swapon {swap}")
     run(f"mkfs.ext4 -F {root}")
-    run(f"mkfs.ext4 -F {home}")
 
-    print("\n[4/6] Montando partições...")
+    print("\n[4/6] Montando particoes...")
     run(f"mount {root} /mnt")
-    run("mkdir -p /mnt/boot/efi /mnt/home")
+    run("mkdir -p /mnt/boot/efi")
     run(f"mount {efi} /mnt/boot/efi")
-    run(f"mount {home} /mnt/home")
 
     print("\n[5/6] Instalando sistema base com pacstrap...")
     pkgs = " ".join(PACKAGES + [
@@ -112,8 +103,15 @@ def install_system():
     print("\n[6/6] Gerando fstab...")
     run("genfstab -U /mnt >> /mnt/etc/fstab")
 
+    # Swap file (2GB) dentro do root
+    print("  Criando swap file (2GB)...")
+    run("dd if=/dev/zero of=/mnt/swapfile bs=1M count=2048 status=progress")
+    run("chmod 600 /mnt/swapfile")
+    run("mkswap /mnt/swapfile")
+    run("echo '/swapfile none swap defaults 0 0' >> /mnt/etc/fstab")
+
     print("[✓] Sistema base instalado!")
-    return efi, swap, root, home
+
 
 
 # ---------------------------------------------------------------------------
