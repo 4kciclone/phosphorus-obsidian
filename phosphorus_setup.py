@@ -344,12 +344,12 @@ fi
 
 SELECTED=$(ls "$WALLPAPER_DIR" | rofi \
     -dmenu \
-    -p "🌿 Wallpaper" \
-    -theme-str 'window {background-color: #0d1117; border: 2px solid #20c20e;}
-                listview {background-color: #161b22;}
-                element-text {color: #c9d1d9;}
-                element selected {background-color: #20c20e; text-color: #0d1117;}
-                inputbar {background-color: #161b22; text-color: #20c20e;}')
+    -p "Wallpaper" \
+    -theme-str 'window {{background-color: #0d1117; border: 2px solid #20c20e;}}
+                listview {{background-color: #161b22;}}
+                element-text {{color: #c9d1d9;}}
+                element selected {{background-color: #20c20e; text-color: #0d1117;}}
+                inputbar {{background-color: #161b22; text-color: #20c20e;}}')
 
 [ -z "$SELECTED" ] && exit 0
 
@@ -405,27 +405,27 @@ cat > "$WAYBAR_DIR/config" << 'WAYBAR_CONFIG'
 WAYBAR_CONFIG
 
 cat > "$WAYBAR_DIR/style.css" << 'WAYBAR_CSS'
-/* Phosphorus Obsidian – Waybar Style */
-* { font-family: "JetBrainsMono Nerd Font"; font-size: 13px; border: none; border-radius: 0; }
-window#waybar {
+/* Phosphorus Obsidian - Waybar Style */
+* {{ font-family: "JetBrainsMono Nerd Font"; font-size: 13px; border: none; border-radius: 0; }}
+window#waybar {{
     background: rgba(13, 17, 23, 0.90);
     color: #c9d1d9;
     border-bottom: 2px solid #20c20e;
-}
-#workspaces button {
+}}
+#workspaces button {{
     color: #8b949e;
     padding: 0 8px;
     background: transparent;
     border-bottom: 2px solid transparent;
-}
-#workspaces button.active {
+}}
+#workspaces button.active {{
     color: #20c20e;
     border-bottom: 2px solid #20c20e;
     background: rgba(32, 194, 14, 0.1);
-}
-#clock { color: #20c20e; padding: 0 12px; font-weight: bold; }
-#cpu, #memory, #network, #pulseaudio { padding: 0 10px; color: #c9d1d9; }
-#tray { padding: 0 8px; }
+}}
+#clock {{ color: #20c20e; padding: 0 12px; font-weight: bold; }}
+#cpu, #memory, #network, #pulseaudio {{ padding: 0 10px; color: #c9d1d9; }}
+#tray {{ padding: 0 8px; }}
 WAYBAR_CSS
 
 echo "==> Configurando Starship prompt..."
