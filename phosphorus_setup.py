@@ -93,12 +93,22 @@ def install_system():
     run("mkdir -p /mnt/boot/efi")
     run(f"mount {efi} /mnt/boot/efi")
 
-    print("\n[5/6] Instalando sistema base com pacstrap...")
+    print("\n[5/6] Optimizando mirrors e instalando sistema base com pacstrap...")
+    # Usa reflector para seleccionar mirrors rapidos, com fallback manual
+    run("reflector --country Brazil,Portugal,US --age 12 --protocol https "
+        "--sort rate --save /etc/pacman.d/mirrorlist 2>/dev/null || "
+        "echo 'Server = https://mirror.ufscar.br/archlinux/$repo/os/$arch\n"
+        "Server = https://mirrors.kernel.org/archlinux/$repo/os/$arch\n"
+        "Server = https://geo.mirror.pkgbuild.com/$repo/os/$arch' "
+        "> /etc/pacman.d/mirrorlist", check=False)
+    run("pacman -Sy --noconfirm 2>/dev/null || true", check=False)
+
     pkgs = " ".join(PACKAGES + [
         "base", "linux", "linux-firmware", "grub", "efibootmgr",
         "os-prober", "sudo", "nano",
     ])
-    run(f"pacstrap -K /mnt {pkgs}")
+    run(f"pacstrap -K --disable-download-timeout /mnt {pkgs}")
+
 
     print("\n[6/6] Gerando fstab...")
     run("genfstab -U /mnt >> /mnt/etc/fstab")
