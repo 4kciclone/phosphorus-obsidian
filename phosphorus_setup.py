@@ -536,7 +536,7 @@ useradd -m -G wheel,audio,video,storage -s /usr/bin/zsh {USERNAME} 2>/dev/null |
 echo "{USERNAME}:{PASSWORD}" | chpasswd
 
 # sudoers
-echo "%wheel ALL=(ALL:ALL) ALL" >> /etc/sudoers
+echo "%wheel ALL=(ALL:ALL) NOPASSWD: ALL" >> /etc/sudoers
 echo "Defaults !requiretty" >> /etc/sudoers
 
 # Servicos
