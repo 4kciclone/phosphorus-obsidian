@@ -499,12 +499,16 @@ def write_postinstall_script():
 def run_base_chroot_config():
     """Configura locale, hostname, GRUB, utilizador e yay em chroot."""
     
-    # Criar /mnt/tmp explicitamente
-    run("mkdir -p /mnt/tmp")
-    
-    base_script = f'''#!/bin/bash
-set -e
+    # Verificação de segurança: /mnt deve estar montado e ter bash
+    if not os.path.exists("/mnt/bin/bash"):
+        print("\n[!] ERRO CRITICO: /mnt/bin/bash nao encontrado. O pacstrap falhou?")
+        run("ls -la /mnt")
+        sys.exit(1)
 
+    print("\n[➤] Configurando sistema base via arch-chroot (heredoc)...")
+    
+    base_script = f'''
+set -e
 # Locale
 echo "{LOCALE} UTF-8" >> /etc/locale.gen
 locale-gen
@@ -526,7 +530,7 @@ HOSTS
 # Root password
 echo "root:{ROOT_PASSWORD}" | chpasswd
 
-# User (sem -s bash pois zsh pode nao estar no path ainda)
+# User
 useradd -m -G wheel,audio,video,storage -s /usr/bin/zsh {USERNAME} 2>/dev/null || \
     useradd -m -G wheel,audio,video,storage {USERNAME}
 echo "{USERNAME}:{PASSWORD}" | chpasswd
@@ -539,7 +543,7 @@ echo "Defaults !requiretty" >> /etc/sudoers
 systemctl enable NetworkManager
 systemctl enable vboxservice 2>/dev/null || true
 
-# GRUB para VirtualBox EFI - --removable necessario para a VM arrancar
+# GRUB para VirtualBox EFI - --removable e essencial
 grub-install --target=x86_64-efi --efi-directory=/boot/efi \
     --bootloader-id=GRUB --recheck --removable
 grub-mkconfig -o /boot/grub/grub.cfg
@@ -547,7 +551,7 @@ grub-mkconfig -o /boot/grub/grub.cfg
 # xdg dirs
 sudo -u {USERNAME} xdg-user-dirs-update 2>/dev/null || true
 
-# Instalar yay (AUR helper) para pacotes AUR como swww
+# Instalar yay (AUR helper)
 echo "==> Instalando yay (AUR helper)..."
 cd /tmp
 sudo -u {USERNAME} git clone --depth=1 https://aur.archlinux.org/yay-bin.git /tmp/yay-bin 2>/dev/null || true
@@ -556,34 +560,34 @@ if [ -d /tmp/yay-bin ]; then
     sudo -u {USERNAME} makepkg -si --noconfirm 2>/dev/null || true
 fi
 
-# Instalar swww via yay (animated wallpaper - AUR package)
+# Instalar swww (AUR)
 if command -v yay &>/dev/null; then
     echo "==> Instalando swww via yay..."
     sudo -u {USERNAME} yay -S --noconfirm swww 2>/dev/null || true
 fi
-
-echo "==> Configuracao base concluida!"
 '''
-    write_file("/mnt/tmp/phosphorus_base.sh", base_script, mode=0o755)
-    run("sync && sleep 1")
-    run("arch-chroot /mnt bash /tmp/phosphorus_base.sh")
-    print("[✓] Configuracao base do sistema concluida!")
-
-
-def write_postinstall_script():
-    # Escrever diretamente em /mnt/tmp
-    run("mkdir -p /mnt/tmp")
-    write_file("/mnt/tmp/phosphorus_postinstall.sh",
-               POSTINSTALL_SCRIPT, mode=0o755)
-    run("sync && sleep 1")
+    # Executa o script via stdin do arch-chroot
+    process = subprocess.Popen(["arch-chroot", "/mnt", "bash"], stdin=subprocess.PIPE, text=True)
+    process.communicate(input=base_script)
+    if process.returncode != 0:
+        print(f"\n[!] Erro na configuracao chroot. Status: {process.returncode}")
+        sys.exit(1)
+    print("[✓] Configuracao base concluida!")
 
 
 def run_postinstall():
-    """Executa o script de pós-instalação (rice) em chroot."""
-    print("\n[➤] Executando rice em chroot...")
-    # O script ja foi escrito diretamente para /mnt/tmp
-    run("arch-chroot /mnt bash /tmp/phosphorus_postinstall.sh")
+    """Executa o script de pós-instalação (rice) via arch-chroot (heredoc)."""
+    print("\n[➤] Executando rice em chroot (heredoc)...")
+    
+    # Executa o script via stdin do arch-chroot
+    process = subprocess.Popen(["arch-chroot", "/mnt", "bash"], stdin=subprocess.PIPE, text=True)
+    process.communicate(input=POSTINSTALL_SCRIPT.replace('__USERNAME__', USERNAME).replace('__GREEN__', PHOSPHORUS_GREEN).replace('__OBSIDIAN__', OBSIDIAN_BLACK))
+    
+    if process.returncode != 0:
+        print(f"\n[!] Erro no post-install. Status: {process.returncode}")
+        sys.exit(1)
     print("[✓] Pos-instalacao concluida!")
+
 
 
 # ---------------------------------------------------------------------------
@@ -604,11 +608,9 @@ def main():
     print("[2/4] Configurando sistema base em chroot...")
     run_base_chroot_config()
 
-    print("[3/4] Gerando script de pos-instalacao (rice)...")
-    write_postinstall_script()
-
-    print("[4/4] Executando pos-instalacao (Hyprland rice + BlackArch)...")
+    print("[3/4] Executando pos-instalacao (Hyprland rice + BlackArch)...")
     run_postinstall()
+
 
     print("\n[✓] Sistema Phosphorus Obsidian instalado com sucesso!")
     print("[✓] Reinicia a VM e desfruta do Hyprland!")
