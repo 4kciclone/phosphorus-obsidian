@@ -46,7 +46,7 @@ PACKAGES = [
     # Rede
     "networkmanager", "sudo",
     # VirtualBox e Drivers
-    "virtualbox-guest-utils", "mesa", "lib32-mesa", "xf86-video-vmware", "vulkan-swrast",
+    "virtualbox-guest-utils", "mesa", "vulkan-swrast",
 ]
 
 # ---------------------------------------------------------------------------
@@ -108,7 +108,9 @@ def install_system():
     
     # Habilitar ParallelDownloads no ambiente Live
     run("sed -i 's/^#ParallelDownloads/ParallelDownloads/' /etc/pacman.conf")
-    print("  [✓] Downloads paralelos ativados")
+    # Ativa multilib (necessario para alguns pacotes e libs)
+    run("sed -i '/\\[multilib\\]/,/Include/s/^#//' /etc/pacman.conf")
+    print("  [✓] Repositorios e Downloads paralelos ativados")
 
     # Escreve mirrorlist com mirrors confiaveis diretamente via Python
     mirrorlist = (
