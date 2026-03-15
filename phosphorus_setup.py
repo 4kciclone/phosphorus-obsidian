@@ -29,13 +29,24 @@ PHOSPHORUS_GREEN = "#20c20e"
 OBSIDIAN_BLACK   = "#0d1117"
 
 PACKAGES = [
-    "git", "base-devel", "kitty", "hyprland", "waybar", "swww",
-    "rofi-wayland", "virtualbox-guest-utils", "starship", "zsh",
-    "ttf-jetbrains-mono-nerd", "networkmanager", "sudo", "neovim",
-    "curl", "wget", "python", "xdg-user-dirs", "pipewire",
-    "pipewire-pulse", "wireplumber", "xdg-desktop-portal-hyprland",
-    "polkit-kde-agent", "qt5-wayland", "qt6-wayland",
-    "grim", "slurp", "wl-clipboard", "dunst",
+    # Ferramentas base
+    "git", "base-devel", "neovim", "curl", "wget", "python", "zsh",
+    # Desktop Wayland
+    "hyprland", "waybar", "rofi-wayland",
+    "kitty", "dunst", "swaybg",          # swaybg = wallpaper (oficial)
+    "grim", "slurp", "wl-clipboard",
+    # Audio
+    "pipewire", "pipewire-pulse", "wireplumber",
+    # Portal / polkit
+    "xdg-desktop-portal-hyprland", "xdg-user-dirs",
+    "polkit-gnome",                      # polkit-kde-agent nao existe
+    "qt5-wayland", "qt6-wayland",
+    # Fonts e extras
+    "ttf-jetbrains-mono-nerd", "starship",
+    # Rede
+    "networkmanager", "sudo",
+    # VirtualBox
+    "virtualbox-guest-utils",
 ]
 
 # ---------------------------------------------------------------------------
@@ -94,21 +105,32 @@ def install_system():
     run(f"mount {efi} /mnt/boot/efi")
 
     print("\n[5/6] Optimizando mirrors e instalando sistema base com pacstrap...")
-    # Usa reflector para seleccionar mirrors rapidos, com fallback manual
-    run("reflector --country Brazil,Portugal,US --age 12 --protocol https "
-        "--sort rate --save /etc/pacman.d/mirrorlist 2>/dev/null || "
-        "echo 'Server = https://mirror.ufscar.br/archlinux/$repo/os/$arch\n"
+    # Escreve mirrorlist com mirrors confiaveis diretamente via Python
+    mirrorlist = (
+        "# Phosphorus Obsidian - mirrorlist\n"
+        "Server = https://mirror.ufscar.br/archlinux/$repo/os/$arch\n"
         "Server = https://mirrors.kernel.org/archlinux/$repo/os/$arch\n"
-        "Server = https://geo.mirror.pkgbuild.com/$repo/os/$arch' "
-        "> /etc/pacman.d/mirrorlist", check=False)
-    run("pacman -Sy --noconfirm 2>/dev/null || true", check=False)
+        "Server = https://mirror.rackspace.com/archlinux/$repo/os/$arch\n"
+        "Server = https://mirrors.mit.edu/archlinux/$repo/os/$arch\n"
+        "Server = https://geo.mirror.pkgbuild.com/$repo/os/$arch\n"
+    )
+    with open("/etc/pacman.d/mirrorlist", "w") as f:
+        f.write(mirrorlist)
+    print("  [✓] Mirrorlist atualizado")
+
+    # Tenta melhorar com reflector (pode falhar, nao e critico)
+    run("reflector --country Brazil,US --age 6 --protocol https "
+        "--sort rate --save /etc/pacman.d/mirrorlist", check=False)
+
+    run("pacman -Sy --noconfirm", check=False)
 
     pkgs = " ".join(PACKAGES + [
         "base", "linux", "linux-firmware", "grub", "efibootmgr",
         "os-prober", "sudo", "nano",
     ])
-    run(f"pacstrap -K --disable-download-timeout /mnt {pkgs}")
-
+    # Sem --disable-download-timeout (flag invalido nesta versao)
+    # Usar --noconfirm para evitar prompts interativos
+    run(f"pacstrap -K /mnt {pkgs}")
 
     print("\n[6/6] Gerando fstab...")
     run("genfstab -U /mnt >> /mnt/etc/fstab")
@@ -167,9 +189,11 @@ monitor=,preferred,auto,1
 
 # Autostart
 exec-once = waybar
-exec-once = swww init
 exec-once = dunst
-exec-once = /usr/lib/polkit-kde-authentication-agent-1
+exec-once = /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1
+# Wallpaper: usa swww se disponivel, swaybg como fallback
+exec-once = swww-daemon || true
+exec-once = (swww img $HOME/.config/hypr/wallpaper.png --transition-type fade 2>/dev/null) || swaybg -c __OBSIDIAN__ &
 
 # Input
 input {{
@@ -467,42 +491,74 @@ def write_postinstall_script():
 
 
 def run_base_chroot_config():
-    """Configura locale, hostname, GRUB e utilizador em chroot."""
-    # Script inline de chroot para configuração base
+    """Configura locale, hostname, GRUB, utilizador e yay em chroot."""
     base_script = f'''#!/bin/bash
 set -e
+
 # Locale
 echo "{LOCALE} UTF-8" >> /etc/locale.gen
 locale-gen
 echo "LANG={LOCALE}" > /etc/locale.conf
 echo "KEYMAP={KEYMAP}" > /etc/vconsole.conf
+
 # Timezone
 ln -sf /usr/share/zoneinfo/{TIMEZONE} /etc/localtime
 hwclock --systohc
+
 # Hostname
 echo "{HOSTNAME}" > /etc/hostname
 cat >> /etc/hosts << 'HOSTS'
-127.0.0.1 localhost
-::1       localhost
-127.0.1.1 {HOSTNAME}.localdomain {HOSTNAME}
+127.0.0.1   localhost
+::1         localhost
+127.0.1.1   {HOSTNAME}.localdomain {HOSTNAME}
 HOSTS
+
 # Root password
 echo "root:{ROOT_PASSWORD}" | chpasswd
-# User
-useradd -m -G wheel,audio,video,storage -s /bin/bash {USERNAME}
+
+# User (sem -s bash pois zsh pode nao estar no path ainda)
+useradd -m -G wheel,audio,video,storage -s /usr/bin/zsh {USERNAME} 2>/dev/null || \
+    useradd -m -G wheel,audio,video,storage {USERNAME}
 echo "{USERNAME}:{PASSWORD}" | chpasswd
-echo "%wheel ALL=(ALL) ALL" >> /etc/sudoers
-# Enable services
+
+# sudoers
+echo "%wheel ALL=(ALL:ALL) ALL" >> /etc/sudoers
+echo "Defaults !requiretty" >> /etc/sudoers
+
+# Servicos
 systemctl enable NetworkManager
 systemctl enable vboxservice 2>/dev/null || true
-# GRUB
-grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=GRUB
+
+# GRUB para VirtualBox EFI - --removable necessario para a VM arrancar
+grub-install --target=x86_64-efi --efi-directory=/boot/efi \
+    --bootloader-id=GRUB --recheck --removable
 grub-mkconfig -o /boot/grub/grub.cfg
+
+# xdg dirs
+sudo -u {USERNAME} xdg-user-dirs-update 2>/dev/null || true
+
+# Instalar yay (AUR helper) para pacotes AUR como swww
+echo "==> Instalando yay (AUR helper)..."
+cd /tmp
+sudo -u {USERNAME} git clone --depth=1 https://aur.archlinux.org/yay-bin.git /tmp/yay-bin 2>/dev/null || true
+if [ -d /tmp/yay-bin ]; then
+    cd /tmp/yay-bin
+    sudo -u {USERNAME} makepkg -si --noconfirm 2>/dev/null || true
+fi
+
+# Instalar swww via yay (animated wallpaper - AUR package)
+if command -v yay &>/dev/null; then
+    echo "==> Instalando swww via yay..."
+    sudo -u {USERNAME} yay -S --noconfirm swww 2>/dev/null || true
+fi
+
+echo "==> Configuracao base concluida!"
 '''
     write_file("/tmp/phosphorus_base.sh", base_script, mode=0o755)
     run("cp /tmp/phosphorus_base.sh /mnt/tmp/phosphorus_base.sh")
     run("arch-chroot /mnt bash /tmp/phosphorus_base.sh")
-    print("[✓] Configuração base do sistema concluída!")
+    print("[✓] Configuracao base do sistema concluida!")
+
 
 
 def run_postinstall():
