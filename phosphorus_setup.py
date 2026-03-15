@@ -428,13 +428,11 @@ window#waybar {
 #tray { padding: 0 8px; }
 WAYBAR_CSS
 
-echo "==> Configurando Starship prompt…"
+echo "==> Configurando Starship prompt..."
 STARSHIP_DIR="$HOME_DIR/.config"
 cat > "$STARSHIP_DIR/starship.toml" << 'STARSHIP_CONF'
-# Phosphorus Obsidian – Starship Prompt
-format = """
-[╭─](bold green)$username$hostname$directory$git_branch$git_status
-[╰─](bold green)$character"""
+# Phosphorus Obsidian - Starship Prompt
+format = "$username$hostname$directory$git_branch$git_status\n> $character"
 
 [username]
 style_user = "bold #20c20e"
@@ -455,9 +453,10 @@ truncation_length = 3
 format = "[ $branch](bold #8b949e) "
 
 [character]
-success_symbol = "[❯](bold #20c20e)"
-error_symbol   = "[❯](bold red)"
+success_symbol = "[>](bold #20c20e)"
+error_symbol   = "[>](bold red)"
 STARSHIP_CONF
+
 
 echo "==> Configurando .zshrc…"
 cat > "$HOME_DIR/.zshrc" << 'ZSHRC'
