@@ -105,6 +105,11 @@ def install_system():
     run(f"mount {efi} /mnt/boot/efi")
 
     print("\n[5/6] Optimizando mirrors e instalando sistema base com pacstrap...")
+    
+    # Habilitar ParallelDownloads no ambiente Live
+    run("sed -i 's/^#ParallelDownloads/ParallelDownloads/' /etc/pacman.conf")
+    print("  [✓] Downloads paralelos ativados")
+
     # Escreve mirrorlist com mirrors confiaveis diretamente via Python
     mirrorlist = (
         "# Phosphorus Obsidian - mirrorlist\n"
@@ -116,11 +121,11 @@ def install_system():
     )
     with open("/etc/pacman.d/mirrorlist", "w") as f:
         f.write(mirrorlist)
-    print("  [✓] Mirrorlist atualizado")
+    print("  [✓] Mirrorlist base atualizado")
 
-    # Tenta melhorar com reflector (pode falhar, nao e critico)
-    run("reflector --country Brazil,US --age 6 --protocol https "
-        "--sort rate --save /etc/pacman.d/mirrorlist", check=False)
+    # Tenta melhorar com reflector (com timeout mais curto)
+    run("reflector --country Brazil,US --age 6 --protocol https --latest 20 "
+        "--sort rate --save /etc/pacman.d/mirrorlist --connection-timeout 5", check=False)
 
     run("pacman -Sy --noconfirm", check=False)
 
@@ -128,9 +133,10 @@ def install_system():
         "base", "linux", "linux-firmware", "grub", "efibootmgr",
         "os-prober", "sudo", "nano",
     ])
-    # Sem --disable-download-timeout (flag invalido nesta versao)
-    # Usar --noconfirm para evitar prompts interativos
+    
+    # pacstrap com --noconfirm
     run(f"pacstrap -K /mnt {pkgs}")
+
 
     print("\n[6/6] Gerando fstab...")
     run("genfstab -U /mnt >> /mnt/etc/fstab")
@@ -492,6 +498,10 @@ def write_postinstall_script():
 
 def run_base_chroot_config():
     """Configura locale, hostname, GRUB, utilizador e yay em chroot."""
+    
+    # Criar /mnt/tmp explicitamente
+    run("mkdir -p /mnt/tmp")
+    
     base_script = f'''#!/bin/bash
 set -e
 
@@ -554,18 +564,24 @@ fi
 
 echo "==> Configuracao base concluida!"
 '''
-    write_file("/tmp/phosphorus_base.sh", base_script, mode=0o755)
-    run("cp /tmp/phosphorus_base.sh /mnt/tmp/phosphorus_base.sh")
+    write_file("/mnt/tmp/phosphorus_base.sh", base_script, mode=0o755)
+    run("sync && sleep 1")
     run("arch-chroot /mnt bash /tmp/phosphorus_base.sh")
     print("[✓] Configuracao base do sistema concluida!")
 
 
+def write_postinstall_script():
+    # Escrever diretamente em /mnt/tmp
+    run("mkdir -p /mnt/tmp")
+    write_file("/mnt/tmp/phosphorus_postinstall.sh",
+               POSTINSTALL_SCRIPT, mode=0o755)
+    run("sync && sleep 1")
+
 
 def run_postinstall():
     """Executa o script de pós-instalação (rice) em chroot."""
-    print("\n[➤] Copiando script de rice para o novo sistema...")
-    run("cp /tmp/phosphorus_postinstall.sh /mnt/tmp/phosphorus_postinstall.sh")
-    print("[➤] Executando rice em chroot...")
+    print("\n[➤] Executando rice em chroot...")
+    # O script ja foi escrito diretamente para /mnt/tmp
     run("arch-chroot /mnt bash /tmp/phosphorus_postinstall.sh")
     print("[✓] Pos-instalacao concluida!")
 
