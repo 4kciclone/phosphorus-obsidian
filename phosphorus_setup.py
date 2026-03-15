@@ -56,111 +56,64 @@ def write_file(path, content, mode=0o644):
 
 
 # ---------------------------------------------------------------------------
-# STEP 1 – CONFIGURAÇÃO DO ARCHINSTALL
+# STEP 1 – INSTALAÇÃO MANUAL (sgdisk + pacstrap)
 # ---------------------------------------------------------------------------
 
-def build_archinstall_config():
-    """Gera os JSONs de configuração e credenciais para o archinstall."""
+def install_system():
+    """Particiona, formata, monta e instala o sistema base manualmente."""
 
-    config = {
-        "additional-repositories": [],
-        "archinstall-language": "Portuguese",
-        "audio_config": {"audio": "pipewire"},
-        "bootloader": "Grub",
-        "config_version": "2.8.0",
-        "debug": False,
-        "disk_config": {
-            "config_type": "default_layout",
-            "device_modifications": [
-                {
-                    "device": DISK,
-                    "wipe": True,
-                    "partitions": [
-                        {
-                            "btrfs": [], "flags": ["Boot", "ESP"],
-                            "fs_type": "fat32",
-                            "length": {"unit": "GiB", "value": 0.5,
-                                       "sector_size": {"unit": "B", "value": 512}},
-                            "mount_options": [], "mountpoint": "/boot",
-                            "obj_id": "efi-partition",
-                            "start": {"unit": "MiB", "value": 1,
-                                      "sector_size": {"unit": "B", "value": 512}},
-                            "status": "create", "type": "primary",
-                        },
-                        {
-                            "btrfs": [], "flags": [],
-                            "fs_type": "ext4",
-                            "length": {"unit": "GiB", "value": 20,
-                                       "sector_size": {"unit": "B", "value": 512}},
-                            "mount_options": [], "mountpoint": "/",
-                            "obj_id": "root-partition",
-                            "start": {"unit": "MiB", "value": 513,
-                                      "sector_size": {"unit": "B", "value": 512}},
-                            "status": "create", "type": "primary",
-                        },
-                        {
-                            "btrfs": [], "flags": [],
-                            "fs_type": "ext4",
-                            "length": {"unit": "GiB", "value": -1,
-                                       "sector_size": {"unit": "B", "value": 512}},
-                            "mount_options": [], "mountpoint": "/home",
-                            "obj_id": "home-partition",
-                            "start": {"unit": "GiB", "value": 20.5,
-                                      "sector_size": {"unit": "B", "value": 512}},
-                            "status": "create", "type": "primary",
-                        },
-                    ],
-                }
-            ],
-        },
-        "hostname": HOSTNAME,
-        "kernels": ["linux"],
-        "locale_config": {
-            "kb_layout": KEYMAP,
-            "sys_enc": "UTF-8",
-            "sys_lang": LOCALE,
-        },
-        "network_config": {"nics": [], "type": "nm"},
-        "ntp": True,
-        "packages": PACKAGES,
-        "profile_config": {
-            "profile": {"custom_settings": {}, "details": [], "main": "Minimal"},
-            "gfx_driver": "VMware / VirtualBox (open-source)",
-        },
-        "services": ["NetworkManager", "vboxservice"],
-        "swap": True,
-        "timezone": TIMEZONE,
-        "version": "2.8.0",
-    }
+    print("\n[1/6] Actualizando relógio do sistema...")
+    run("timedatectl set-ntp true")
 
-    credentials = {
-        "!root-password": ROOT_PASSWORD,
-        "!users": [
-            {"username": USERNAME, "!password": PASSWORD, "sudo": True}
-        ],
-    }
+    print("\n[2/6] Particionando disco (GPT/EFI)...")
+    # Limpa o disco e cria tabela GPT
+    run(f"sgdisk --zap-all {DISK}")
+    run(f"sgdisk --clear {DISK}")
+    # Partição 1: EFI (512MB)
+    run(f"sgdisk -n 1:0:+512M -t 1:ef00 -c 1:'EFI' {DISK}")
+    # Partição 2: swap (2GB)
+    run(f"sgdisk -n 2:0:+2G  -t 2:8200 -c 2:'swap' {DISK}")
+    # Partição 3: root (20GB)
+    run(f"sgdisk -n 3:0:+20G -t 3:8300 -c 3:'root' {DISK}")
+    # Partição 4: home (resto)
+    run(f"sgdisk -n 4:0:0    -t 4:8300 -c 4:'home' {DISK}")
+    run("partprobe", check=False)
+    run("sleep 2")
 
-    write_file("/tmp/phosphorus_config.json",
-               json.dumps(config, indent=2, ensure_ascii=False))
-    write_file("/tmp/phosphorus_credentials.json",
-               json.dumps(credentials, indent=2, ensure_ascii=False))
+    # Detecta nomes correctos das partições (sda1/sda1 ou nvme0n1p1 etc.)
+    import glob
+    parts = sorted(glob.glob(f"{DISK}*[0-9]"))
+    if len(parts) < 4:
+        # Tenta com 'p' prefix (NVMe)
+        parts = sorted(glob.glob(f"{DISK}p*[0-9]"))
+    efi, swap, root, home = parts[0], parts[1], parts[2], parts[3]
+    print(f"  Partições detectadas: EFI={efi} swap={swap} root={root} home={home}")
 
-    print("\n[✓] Configurações do archinstall geradas.")
+    print("\n[3/6] Formatando partições...")
+    run(f"mkfs.fat -F32 {efi}")
+    run(f"mkswap {swap}")
+    run(f"swapon {swap}")
+    run(f"mkfs.ext4 -F {root}")
+    run(f"mkfs.ext4 -F {home}")
 
+    print("\n[4/6] Montando partições...")
+    run(f"mount {root} /mnt")
+    run("mkdir -p /mnt/boot/efi /mnt/home")
+    run(f"mount {efi} /mnt/boot/efi")
+    run(f"mount {home} /mnt/home")
 
-# ---------------------------------------------------------------------------
-# STEP 2 – EXECUTA O ARCHINSTALL
-# ---------------------------------------------------------------------------
+    print("\n[5/6] Instalando sistema base com pacstrap...")
+    pkgs = " ".join(PACKAGES + [
+        "base", "linux", "linux-firmware", "grub", "efibootmgr",
+        "os-prober", "sudo", "nano",
+    ])
+    run(f"pacstrap -K /mnt {pkgs}")
 
-def run_archinstall():
-    """Executa o archinstall com as configs geradas."""
-    print("\n[➤] A iniciar o archinstall…")
-    run(
-        "archinstall "
-        "--config /tmp/phosphorus_config.json "
-        "--creds /tmp/phosphorus_credentials.json "
-        "--silent"
-    )
+    print("\n[6/6] Gerando fstab...")
+    run("genfstab -U /mnt >> /mnt/etc/fstab")
+
+    print("[✓] Sistema base instalado!")
+    return efi, swap, root, home
 
 
 # ---------------------------------------------------------------------------
@@ -505,13 +458,52 @@ def write_postinstall_script():
                POSTINSTALL_SCRIPT, mode=0o755)
 
 
+def run_base_chroot_config():
+    """Configura locale, hostname, GRUB e utilizador em chroot."""
+    # Script inline de chroot para configuração base
+    base_script = f'''#!/bin/bash
+set -e
+# Locale
+echo "{LOCALE} UTF-8" >> /etc/locale.gen
+locale-gen
+echo "LANG={LOCALE}" > /etc/locale.conf
+echo "KEYMAP={KEYMAP}" > /etc/vconsole.conf
+# Timezone
+ln -sf /usr/share/zoneinfo/{TIMEZONE} /etc/localtime
+hwclock --systohc
+# Hostname
+echo "{HOSTNAME}" > /etc/hostname
+cat >> /etc/hosts << 'HOSTS'
+127.0.0.1 localhost
+::1       localhost
+127.0.1.1 {HOSTNAME}.localdomain {HOSTNAME}
+HOSTS
+# Root password
+echo "root:{ROOT_PASSWORD}" | chpasswd
+# User
+useradd -m -G wheel,audio,video,storage -s /bin/bash {USERNAME}
+echo "{USERNAME}:{PASSWORD}" | chpasswd
+echo "%wheel ALL=(ALL) ALL" >> /etc/sudoers
+# Enable services
+systemctl enable NetworkManager
+systemctl enable vboxservice 2>/dev/null || true
+# GRUB
+grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=GRUB
+grub-mkconfig -o /boot/grub/grub.cfg
+'''
+    write_file("/tmp/phosphorus_base.sh", base_script, mode=0o755)
+    run("cp /tmp/phosphorus_base.sh /mnt/tmp/phosphorus_base.sh")
+    run("arch-chroot /mnt bash /tmp/phosphorus_base.sh")
+    print("[✓] Configuração base do sistema concluída!")
+
+
 def run_postinstall():
-    """Executa o script de pós-instalação em chroot."""
-    print("\n[➤] Copiando script para o novo sistema…")
+    """Executa o script de pós-instalação (rice) em chroot."""
+    print("\n[➤] Copiando script de rice para o novo sistema...")
     run("cp /tmp/phosphorus_postinstall.sh /mnt/tmp/phosphorus_postinstall.sh")
-    print("[➤] Executando em chroot…")
+    print("[➤] Executando rice em chroot...")
     run("arch-chroot /mnt bash /tmp/phosphorus_postinstall.sh")
-    print("[✓] Pós-instalação concluída!")
+    print("[✓] Pos-instalacao concluida!")
 
 
 # ---------------------------------------------------------------------------
@@ -526,32 +518,16 @@ def main():
 ╚══════════════════════════════════════════════════════╝
     """)
 
-    # Verifica modo: pode rodar como gerador (--generate-only)
-    # ou como instalador completo
-    generate_only = "--generate-only" in sys.argv
+    print("[1/4] Instalando sistema base (sgdisk + pacstrap)...")
+    install_system()
 
-    print("[1/4] Gerando configurações do archinstall…")
-    build_archinstall_config()
+    print("[2/4] Configurando sistema base em chroot...")
+    run_base_chroot_config()
 
-    print("[2/4] Gerando script de pós-instalação…")
+    print("[3/4] Gerando script de pos-instalacao (rice)...")
     write_postinstall_script()
 
-    if generate_only:
-        print("\n[ℹ] Modo --generate-only: ficheiros gerados em /tmp/")
-        print("    Config:       /tmp/phosphorus_config.json")
-        print("    Credentials:  /tmp/phosphorus_credentials.json")
-        print("    Post-install: /tmp/phosphorus_postinstall.sh")
-        print("\n    Para instalar manualmente:")
-        print("    archinstall --config /tmp/phosphorus_config.json \\")
-        print("                --creds /tmp/phosphorus_credentials.json \\")
-        print("                --silent")
-        print("    arch-chroot /mnt bash /tmp/phosphorus_postinstall.sh")
-        return
-
-    print("[3/4] Executando archinstall…")
-    run_archinstall()
-
-    print("[4/4] Executando pós-instalação em chroot…")
+    print("[4/4] Executando pos-instalacao (Hyprland rice + BlackArch)...")
     run_postinstall()
 
     print("\n[✓] Sistema Phosphorus Obsidian instalado com sucesso!")
