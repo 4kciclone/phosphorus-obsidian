@@ -1,0 +1,147 @@
+{
+    "additional-repositories": [],
+    "archinstall-language": "Portuguese",
+    "audio_config": {
+        "audio": "pipewire"
+    },
+    "bootloader": "Grub",
+    "config_version": "2.8.0",
+    "debug": false,
+    "disk_config": {
+        "config_type": "default_layout",
+        "device_modifications": [
+            {
+                "device": "/dev/sda",
+                "wipe": true,
+                "partitions": [
+                    {
+                        "btrfs": [],
+                        "flags": [
+                            "Boot",
+                            "ESP"
+                        ],
+                        "fs_type": "fat32",
+                        "length": {
+                            "sector_size": null,
+                            "total_size": null,
+                            "unit": "GiB",
+                            "value": 0.5
+                        },
+                        "mount_options": [],
+                        "mountpoint": "/boot",
+                        "obj_id": "efi-partition",
+                        "start": {
+                            "sector_size": null,
+                            "total_size": null,
+                            "unit": "MiB",
+                            "value": 1
+                        },
+                        "status": "create",
+                        "type": "primary"
+                    },
+                    {
+                        "btrfs": [],
+                        "flags": [],
+                        "fs_type": "ext4",
+                        "length": {
+                            "sector_size": null,
+                            "total_size": null,
+                            "unit": "GiB",
+                            "value": 4
+                        },
+                        "mount_options": [],
+                        "mountpoint": "/",
+                        "obj_id": "root-partition",
+                        "start": {
+                            "sector_size": null,
+                            "total_size": null,
+                            "unit": "MiB",
+                            "value": 513
+                        },
+                        "status": "create",
+                        "type": "primary"
+                    },
+                    {
+                        "btrfs": [],
+                        "flags": [],
+                        "fs_type": "ext4",
+                        "length": {
+                            "sector_size": null,
+                            "total_size": null,
+                            "unit": "GiB",
+                            "value": -1
+                        },
+                        "mount_options": [],
+                        "mountpoint": "/home",
+                        "obj_id": "home-partition",
+                        "start": {
+                            "sector_size": null,
+                            "total_size": null,
+                            "unit": "GiB",
+                            "value": 4.5
+                        },
+                        "status": "create",
+                        "type": "primary"
+                    }
+                ]
+            }
+        ]
+    },
+    "hostname": "phosphorus-obsidian",
+    "kernels": [
+        "linux"
+    ],
+    "locale_config": {
+        "kb_layout": "pt",
+        "sys_enc": "UTF-8",
+        "sys_lang": "pt_PT.UTF-8"
+    },
+    "mirror_config": {
+        "mirror_regions": {
+            "Portugal": [
+                "https://mirrors.up.pt/pub/archlinux/$repo/os/$arch"
+            ]
+        }
+    },
+    "network_config": {
+        "nics": [],
+        "type": "nm"
+    },
+    "no_pkg_lookups": false,
+    "ntp": true,
+    "packages": [
+        "git",
+        "base-devel",
+        "kitty",
+        "hyprland",
+        "waybar",
+        "swww",
+        "rofi-lbonn-wayland",
+        "virtualbox-guest-utils",
+        "starship",
+        "zsh",
+        "ttf-jetbrains-mono-nerd",
+        "networkmanager",
+        "sudo",
+        "neovim",
+        "curl",
+        "wget",
+        "python",
+        "xdg-user-dirs"
+    ],
+    "profile_config": {
+        "profile": {
+            "custom_settings": {},
+            "details": [],
+            "main": "Minimal"
+        },
+        "gfx_driver": "VMware / VirtualBox (open-source)"
+    },
+    "services": [
+        "NetworkManager",
+        "vboxservice"
+    ],
+    "swap": true,
+    "timezone": "Europe/Lisbon",
+    "version": "2.8.0"
+}
